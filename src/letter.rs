@@ -1,6 +1,65 @@
 use crate::mark::Mark;
-use std::convert;
+use std::collections::HashSet;
+use std::convert::{From, TryFrom};
 use std::fmt;
+
+lazy_static! {
+    static ref VALID_LETTERS: HashSet<char> = {
+        let mut s = HashSet::new();
+        s.insert('A');
+        s.insert('B');
+        s.insert('C');
+        s.insert('D');
+        s.insert('E');
+        s.insert('F');
+        s.insert('G');
+        s.insert('H');
+        s.insert('I');
+        s.insert('J');
+        s.insert('K');
+        s.insert('L');
+        s.insert('M');
+        s.insert('N');
+        s.insert('O');
+        s.insert('P');
+        s.insert('Q');
+        s.insert('R');
+        s.insert('S');
+        s.insert('T');
+        s.insert('U');
+        s.insert('V');
+        s.insert('W');
+        s.insert('X');
+        s.insert('Y');
+        s.insert('Z');
+        s.insert('0');
+        s.insert('1');
+        s.insert('2');
+        s.insert('3');
+        s.insert('4');
+        s.insert('5');
+        s.insert('6');
+        s.insert('7');
+        s.insert('8');
+        s.insert('9');
+        s.insert('&');
+        s.insert('\'');
+        s.insert('@');
+        s.insert(')');
+        s.insert('(');
+        s.insert(':');
+        s.insert(',');
+        s.insert('=');
+        s.insert('!');
+        s.insert('.');
+        s.insert('-');
+        s.insert('+');
+        s.insert('"');
+        s.insert('?');
+        s.insert('/');
+        s
+    };
+}
 
 pub enum Letter {
     A,
@@ -55,7 +114,6 @@ pub enum Letter {
     Query,
     Slash,
 }
-
 
 impl Letter {
     pub fn str_ref(&self) -> &'static str {
@@ -115,13 +173,11 @@ impl Letter {
     }
 
     pub fn marks(&self) -> Vec<Mark> {
-        self.str_ref().chars()
-        .map(|c| Mark::from(c))
-        .collect()
+        self.str_ref().chars().map(|c| Mark::from(c)).collect()
     }
 }
 
-impl convert::From<char> for Letter {
+impl From<char> for Letter {
     fn from(c: char) -> Self {
         match c {
             'A' => Self::A,
@@ -180,20 +236,30 @@ impl convert::From<char> for Letter {
     }
 }
 
+impl TryFrom<&char> for Letter {
+    type Error = &'static str;
+
+    fn try_from(c: &char) -> Result<Self, Self::Error> {
+        println!("{}", c);
+        if VALID_LETTERS.contains(c) {
+            Ok(Letter::from(*c))
+        } else {
+            Err("Invalid char for Letter")
+        }
+    }
+}
+
 impl fmt::Display for Letter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.str_ref()
-        )
+        write!(f, "{}", self.str_ref())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::Letter;
+    use super::{Letter, VALID_LETTERS};
     use crate::mark::Mark;
+    use std::convert::{From, TryFrom};
 
     #[test]
     #[should_panic]
@@ -215,22 +281,22 @@ mod test {
 
     #[test]
     #[allow(non_snake_case)]
-    fn convert_M() {
+    fn from_M() {
         assert_eq!(Letter::from('M').to_string(), "--");
     }
 
     #[test]
-    fn convert_0() {
+    fn from_0() {
         assert_eq!(Letter::from('0').to_string(), "-----");
     }
 
     #[test]
-    fn convert_period() {
+    fn from_period() {
         assert_eq!(Letter::from('.').to_string(), ".-.-.-");
     }
 
     #[test]
-    fn convert_apostrophe() {
+    fn from_apostrophe() {
         assert_eq!(Letter::from('\'').to_string(), ".----.");
     }
 
@@ -239,4 +305,21 @@ mod test {
         assert_eq!(Letter::M.marks(), vec![Mark::Dash, Mark::Dash]);
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    fn try_from_M() {
+        assert_eq!(Letter::try_from('M').unwrap().to_string(), "--");
+    }
+
+    #[test]
+    fn valid_char() {
+        assert!(VALID_LETTERS.contains(&'M'));
+        assert!(!VALID_LETTERS.contains(&'m'));
+        assert!(!VALID_LETTERS.contains(&' '));
+    }
+
+    #[test]
+    fn try_from_m() {
+        assert!(Letter::try_from(&'m').is_err());
+    }
 }

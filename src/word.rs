@@ -1,4 +1,5 @@
 use crate::letter::Letter;
+use crate::timing::Signal;
 use std::convert::TryFrom;
 use std::error;
 use std::fmt;
@@ -23,6 +24,15 @@ impl error::Error for ParseWordError {
 
 pub struct Word {
     letters: Vec<Letter>,
+}
+
+impl Word {
+    pub fn timing<'a>(&'a self) -> impl Iterator<Item = Signal> + 'a {
+        self.letters
+            .iter()
+            .flat_map(|l| std::iter::repeat(Signal::Off).take(3).chain(l.timing()))
+            .skip(3) // Ignore the first letter gap
+    }
 }
 
 impl FromStr for Word {

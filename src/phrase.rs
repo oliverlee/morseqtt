@@ -1,9 +1,19 @@
+use crate::timing::Signal;
 use crate::word::{ParseWordError, Word};
 use std::fmt;
 use std::str::FromStr;
 
 pub struct Phrase {
     words: Vec<Word>,
+}
+
+impl Phrase {
+    pub fn timing<'a>(&'a self) -> impl Iterator<Item = Signal> + 'a {
+        self.words
+            .iter()
+            .flat_map(|l| std::iter::repeat(Signal::Off).take(7).chain(l.timing()))
+            .skip(7) // Ignore the first word gap
+    }
 }
 
 impl FromStr for Phrase {
@@ -42,6 +52,20 @@ mod test {
         assert_eq!(
             "MORSE CODE".parse::<Phrase>().unwrap().to_string(),
             "-- --- .-. ... .   -.-. --- -.. ."
+        );
+    }
+
+    #[test]
+    fn timing() {
+        assert_eq!(
+            "MORSE CODE"
+                .parse::<Phrase>()
+                .unwrap()
+                .timing()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
+                .join(""),
+            "===.===...===.===.===...=.===.=...=.=.=...=.......===.=.===.=...===.===.===...===.=.=...="
         );
     }
 }

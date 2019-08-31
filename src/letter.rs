@@ -1,4 +1,5 @@
 use crate::mark::Mark;
+use crate::timing::Signal;
 use std::collections::HashSet;
 use std::convert::{From, TryFrom};
 use std::fmt;
@@ -175,6 +176,13 @@ impl Letter {
 
     pub fn marks(&self) -> Vec<Mark> {
         self.str_ref().chars().map(Mark::from).collect()
+    }
+
+    pub fn timing(&self) -> impl Iterator<Item = Signal> {
+        self.marks()
+            .into_iter()
+            .flat_map(|m| std::iter::once(Signal::Off).chain(m.timing()))
+            .skip(1) // Ignore the first mark gap
     }
 }
 

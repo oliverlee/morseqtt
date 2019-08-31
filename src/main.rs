@@ -2,7 +2,17 @@ use morse::phrase::Phrase;
 use std::str::FromStr;
 
 fn main() {
-    println!("Hello, world!");
+    let s = "Hello, world!";
+    println!("{}", s);
 
-    println!("{}", Phrase::from_str("Hello, world!").unwrap());
+    let p = Phrase::from_str(&s).unwrap();
+    println!("{}", p);
+
+    println!(
+        "{}",
+        p.timing()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join("")
+    );
 }

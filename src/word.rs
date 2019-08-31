@@ -35,7 +35,7 @@ impl FromStr for Word {
             .map(|c| Letter::try_from(&c).or(Err(ParseWordError { c })))
             .collect::<Result<Vec<_>, Self::Err>>()?;
 
-        Ok(Word { letters })
+        Ok(Self { letters })
     }
 }
 
@@ -46,7 +46,7 @@ impl fmt::Display for Word {
             "{}",
             self.letters
                 .iter()
-                .map(|c| c.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<String>>()
                 .join(" ")
         )

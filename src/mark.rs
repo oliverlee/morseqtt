@@ -10,8 +10,8 @@ pub enum Mark {
 impl convert::From<char> for Mark {
     fn from(c: char) -> Self {
         match c {
-            '.' => Mark::Dot,
-            '-' => Mark::Dash,
+            '.' => Self::Dot,
+            '-' => Self::Dash,
             _ => panic!("Unexpected char for Mark"),
         }
     }
@@ -23,8 +23,8 @@ impl fmt::Display for Mark {
             f,
             "{}",
             match self {
-                Mark::Dot => ".",
-                Mark::Dash => "-",
+                Self::Dot => ".",
+                Self::Dash => "-",
             }
         )
     }

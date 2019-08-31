@@ -174,7 +174,7 @@ impl Letter {
     }
 
     pub fn marks(&self) -> Vec<Mark> {
-        self.str_ref().chars().map(|c| Mark::from(c)).collect()
+        self.str_ref().chars().map(Mark::from).collect()
     }
 }
 
@@ -242,7 +242,7 @@ impl TryFrom<&char> for Letter {
 
     fn try_from(c: &char) -> Result<Self, Self::Error> {
         if VALID_LETTERS.contains(c) {
-            Ok(Letter::from(*c))
+            Ok(Self::from(*c))
         } else {
             Err("Invalid char for Letter")
         }

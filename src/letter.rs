@@ -61,6 +61,7 @@ lazy_static! {
     };
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Letter {
     A,
     B,
@@ -217,7 +218,7 @@ impl From<char> for Letter {
             '8' => Self::Digit8,
             '9' => Self::Digit9,
             '&' => Self::Ampersand,
-            '\'' =>Self::Apostrophe,
+            '\'' => Self::Apostrophe,
             '@' => Self::At,
             ')' => Self::BracketClose,
             '(' => Self::BracketOpen,
@@ -240,7 +241,6 @@ impl TryFrom<&char> for Letter {
     type Error = &'static str;
 
     fn try_from(c: &char) -> Result<Self, Self::Error> {
-        println!("{}", c);
         if VALID_LETTERS.contains(c) {
             Ok(Letter::from(*c))
         } else {
@@ -321,5 +321,10 @@ mod test {
     #[test]
     fn try_from_m() {
         assert!(Letter::try_from(&'m').is_err());
+    }
+
+    #[test]
+    fn try_from_space() {
+        assert!(Letter::try_from(&' ').is_err());
     }
 }

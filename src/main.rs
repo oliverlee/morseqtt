@@ -1,8 +1,10 @@
-use morse::letter::Letter;
+use morse::word::Word;
+use std::str::FromStr;
 
 fn main() {
     println!("Hello, world!");
 
-    let l = Letter::from('C');
-    println!("letter C:{}", l);
+    let w = "MORSE";
+    let m = Word::from_str(&w).unwrap();
+    println!("Morse code for '{}':{}", w, m);
 }

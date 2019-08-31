@@ -1,8 +1,8 @@
-use morse::mark::Mark;
+use morse::letter::Letter;
 
 fn main() {
     println!("Hello, world!");
 
-    let m = Mark::from('-');
-    println!("mark: {}", m);
+    let l = Letter::from('C');
+    println!("letter C:{}", l);
 }

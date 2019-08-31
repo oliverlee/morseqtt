@@ -1,6 +1,7 @@
 use std::convert;
 use std::fmt;
 
+#[derive(Debug, PartialEq)]
 pub enum Mark {
     Dot,
     Dash,

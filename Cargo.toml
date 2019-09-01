@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 lazy_static = "1.4.0"
 tokio = "0.1.5"
+itertools = "0.8"

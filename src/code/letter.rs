@@ -63,7 +63,7 @@ lazy_static! {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Letter {
+pub(super) enum Letter {
     A,
     B,
     C,
@@ -118,7 +118,7 @@ pub enum Letter {
 }
 
 impl Letter {
-    pub fn str_ref(&self) -> &'static str {
+    pub(super) fn str_ref(&self) -> &'static str {
         match self {
             Self::A => ".-",
             Self::B => "-...",
@@ -174,11 +174,11 @@ impl Letter {
         }
     }
 
-    pub fn marks(&self) -> Vec<Mark> {
+    pub(super) fn marks(&self) -> Vec<Mark> {
         self.str_ref().chars().map(Mark::from).collect()
     }
 
-    pub fn timing(&self) -> impl Iterator<Item = Signal> {
+    pub(super) fn timing(&self) -> impl Iterator<Item = Signal> {
         self.marks()
             .into_iter()
             .flat_map(|m| std::iter::once(Signal::Off).chain(m.timing()))

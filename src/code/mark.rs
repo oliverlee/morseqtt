@@ -3,13 +3,13 @@ use std::convert;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub enum Mark {
+pub(super) enum Mark {
     Dot,
     Dash,
 }
 
 impl Mark {
-    pub fn timing(&self) -> impl Iterator<Item = Signal> {
+    pub(super) fn timing(&self) -> impl Iterator<Item = Signal> {
         match self {
             Self::Dot => std::iter::repeat(Signal::On).take(1),
             Self::Dash => std::iter::repeat(Signal::On).take(3),

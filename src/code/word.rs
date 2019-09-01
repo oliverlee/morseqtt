@@ -22,12 +22,12 @@ impl error::Error for ParseWordError {
     }
 }
 
-pub struct Word {
+pub(super) struct Word {
     letters: Vec<Letter>,
 }
 
 impl Word {
-    pub fn timing<'a>(&'a self) -> impl Iterator<Item = Signal> + 'a {
+    pub(super) fn timing<'a>(&'a self) -> impl Iterator<Item = Signal> + 'a {
         self.letters
             .iter()
             .flat_map(|l| std::iter::repeat(Signal::Off).take(3).chain(l.timing()))

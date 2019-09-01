@@ -1,11 +1,11 @@
-use morse::phrase::Phrase;
+use morse::code::Code;
 use std::str::FromStr;
 
 fn main() {
     let s = "Hello, world!";
     println!("{}", s);
 
-    let p = Phrase::from_str(&s).unwrap();
+    let p = Code::from_str(&s).unwrap();
     println!("{}", p);
 
     println!(

@@ -1,4 +1,4 @@
-use crate::letter::Letter;
+use crate::code::letter::Letter;
 use crate::timing::Signal;
 use std::convert::TryFrom;
 use std::error;
@@ -66,7 +66,7 @@ impl fmt::Display for Word {
 #[cfg(test)]
 mod test {
     use super::Word;
-    use crate::letter::Letter;
+    use crate::code::letter::Letter;
     use std::str::FromStr;
 
     #[test]

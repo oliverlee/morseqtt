@@ -1,5 +1,5 @@
+use crate::code::word::{ParseWordError, Word};
 use crate::timing::Signal;
-use crate::word::{ParseWordError, Word};
 use std::fmt;
 use std::str::FromStr;
 
@@ -11,7 +11,7 @@ impl Phrase {
     pub fn timing<'a>(&'a self) -> impl Iterator<Item = Signal> + 'a {
         self.words
             .iter()
-            .flat_map(|l| std::iter::repeat(Signal::Off).take(7).chain(l.timing()))
+            .flat_map(|w| std::iter::repeat(Signal::Off).take(7).chain(w.timing()))
             .skip(7) // Ignore the first word gap
     }
 }

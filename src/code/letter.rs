@@ -1,4 +1,4 @@
-use crate::mark::Mark;
+use crate::code::mark::Mark;
 use crate::timing::Signal;
 use std::collections::HashSet;
 use std::convert::{From, TryFrom};
@@ -266,7 +266,7 @@ impl fmt::Display for Letter {
 #[cfg(test)]
 mod test {
     use super::{Letter, VALID_LETTERS};
-    use crate::mark::Mark;
+    use crate::code::mark::Mark;
     use std::convert::{From, TryFrom};
 
     #[test]

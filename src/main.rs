@@ -1,6 +1,12 @@
 use morse::code::Code;
-use morse::key::Key;
+use morse::key::*;
 use std::str::FromStr;
+
+use std::io::Write;
+use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::prelude::*;
 
 fn main() {
     let s = "Hello, world!";
@@ -17,10 +23,36 @@ fn main() {
             .join("")
     );
 
-    let k = Key {
-        on: || {},
-        off: || {},
-    };
+    let k = Arc::new(Key {
+        on: || {
+            print!("1");
+            std::io::stdout().flush().unwrap();
+        },
+        off: || {
+            print!("0");
+            std::io::stdout().flush().unwrap();
+        },
+    });
 
-    tokio::run(k.transmit(p.into_timing()));
+    let k1 = Arc::clone(&k);
+    let k2 = Arc::clone(&k);
+
+    tokio::run(
+        transmit_with_dur(k1, p.into_timing(), Duration::from_millis(10))
+            .and_then(|_| {
+                println!();
+                future::ok(())
+            })
+            .and_then(|_| {
+                transmit_with_dur(
+                    k2,
+                    Code::from_str("Morse code.").unwrap().into_timing(),
+                    Duration::from_millis(50),
+                )
+            })
+            .and_then(|_| {
+                println!();
+                future::ok(())
+            }),
+    );
 }

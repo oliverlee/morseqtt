@@ -1,5 +1,5 @@
 [package]
-name = "morse"
+name = "morseqtt"
 version = "0.1.0"
 authors = ["Oliver Lee <oliverzlee@gmail.com>"]
 edition = "2018"

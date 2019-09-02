@@ -1,5 +1,5 @@
-use morse::code::Code;
-use morse::key::*;
+use morseqtt::code::Code;
+use morseqtt::key::*;
 use rumqtt::{MqttClient, MqttOptions, QoS};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;

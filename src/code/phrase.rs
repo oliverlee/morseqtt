@@ -25,6 +25,10 @@ impl Phrase {
             })
             .skip(7) // Ignore the first word gap
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.words.is_empty()
+    }
 }
 
 impl FromStr for Phrase {

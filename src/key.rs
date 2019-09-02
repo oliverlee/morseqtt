@@ -67,19 +67,25 @@ pub fn transmit_with_dur(
         })
         .collect();
 
-    stream::iter_ok(groups.into_iter())
-        .for_each(move |(k, signal, count)| {
-            if signal == Signal::On {
-                k.lock().unwrap().deref_mut().send_on();
-            } else {
-                k.lock().unwrap().deref_mut().send_off();
-            }
+    if groups.is_empty() {
+        future::Either::A(future::ok(()))
+    } else {
+        future::Either::B(
+            stream::iter_ok(groups.into_iter())
+                .for_each(move |(k, signal, count)| {
+                    if signal == Signal::On {
+                        k.lock().unwrap().deref_mut().send_on();
+                    } else {
+                        k.lock().unwrap().deref_mut().send_off();
+                    }
 
-            Delay::new(Instant::now() + count * dur)
-        })
-        .and_then(move |_| {
-            key.lock().unwrap().deref_mut().send_off();
-            future::ok(())
-        })
-        .map_err(|_| ())
+                    Delay::new(Instant::now() + count * dur)
+                })
+                .and_then(move |_| {
+                    key.lock().unwrap().deref_mut().send_off();
+                    future::ok(())
+                })
+                .map_err(|_| ()),
+        )
+    }
 }

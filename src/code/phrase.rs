@@ -14,6 +14,17 @@ impl Phrase {
             .flat_map(|w| std::iter::repeat(Signal::Off).take(7).chain(w.timing()))
             .skip(7) // Ignore the first word gap
     }
+
+    pub fn into_timing(self) -> impl Iterator<Item = Signal> {
+        self.words
+            .into_iter()
+            .flat_map(move |w| {
+                std::iter::repeat(Signal::Off)
+                    .take(7)
+                    .chain(w.into_timing())
+            })
+            .skip(7) // Ignore the first word gap
+    }
 }
 
 impl FromStr for Phrase {

@@ -8,3 +8,7 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
+itertools = "0.8"
+tokio = "0.1.5"
+tokio-file-unix = "0.5.1"
+rumqtt = "0.30.1"

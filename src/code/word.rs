@@ -33,6 +33,13 @@ impl Word {
             .flat_map(|l| std::iter::repeat(Signal::Off).take(3).chain(l.timing()))
             .skip(3) // Ignore the first letter gap
     }
+
+    pub(super) fn into_timing(self) -> impl Iterator<Item = Signal> {
+        self.letters
+            .into_iter()
+            .flat_map(move |l| std::iter::repeat(Signal::Off).take(3).chain(l.timing()))
+            .skip(3) // Ignore the first letter gap
+    }
 }
 
 impl FromStr for Word {

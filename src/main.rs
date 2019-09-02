@@ -95,7 +95,14 @@ fn main() {
         .unwrap_or_else(|| default_host!().to_string());
     let port = matches
         .opt_str("port")
-        .map_or_else(|| default_port!(), |s| s.parse::<u16>().unwrap());
+        .map_or_else(|| Ok(default_port!()), |s| s.parse::<u16>());
+    let port = match port {
+        Ok(p) => p,
+        Err(e) => {
+            println!("Error parsing 'port': {}", e);
+            return;
+        }
+    };
     let duration = Duration::from_millis(
         matches
             .opt_str("duration")
@@ -107,7 +114,13 @@ fn main() {
     let topic = matches.free.pop().unwrap();
 
     let mqtt_options = MqttOptions::new(CLIENT_NAME, &host, port);
-    let (client, _) = MqttClient::start(mqtt_options).unwrap();
+    let client = match MqttClient::start(mqtt_options) {
+        Ok((client, _)) => client,
+        Err(e) => {
+            println!("Error connecting to MQTT broker: {}", e);
+            return;
+        }
+    };
     println!("Connected to {}:{} as {}", host, port, CLIENT_NAME);
 
     // Create a Key for transmission.

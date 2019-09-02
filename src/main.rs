@@ -1,28 +1,15 @@
 use morse::code::Code;
 use morse::key::*;
+use std::io::{Error, ErrorKind};
 use std::str::FromStr;
-
-use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
-
 use tokio::prelude::*;
 
+const DOT_DURATION: Duration = Duration::from_millis(50);
+
 fn main() {
-    let s = "Hello, world!";
-    println!("{}", s);
-
-    let p = Code::from_str(&s).unwrap();
-    println!("{}", p);
-
-    println!(
-        "{}",
-        p.timing()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("")
-    );
-
+    // Create a Key for transmission.
     let k = Arc::new(Key {
         on: || {
             print!("1");
@@ -34,25 +21,35 @@ fn main() {
         },
     });
 
-    let k1 = Arc::clone(&k);
-    let k2 = Arc::clone(&k);
+    // Convert stdin into a nonblocking file;
+    let file = tokio_file_unix::raw_stdin().unwrap();
+    let file = tokio_file_unix::File::new_nb(file).unwrap();
+    let file = file
+        .into_reader(&tokio::reactor::Handle::default())
+        .unwrap();
 
-    tokio::run(
-        transmit_with_dur(k1, p.into_timing(), Duration::from_millis(10))
+    println!("Type something and hit enter!");
+    let line_codec = tokio_file_unix::DelimCodec(tokio_file_unix::Newline);
+    let framed_read = tokio::codec::FramedRead::new(file, line_codec);
+
+    let task = framed_read
+        .for_each(move |line| {
+            let s = std::str::from_utf8(&line).unwrap().trim();
+            println!("Transmitting: {}", s);
+
+            // Don't spawn this task as we want don't want multiple, simultaneous transmissions.
+            transmit_with_dur(
+                Arc::clone(&k),
+                Code::from_str(s).unwrap().into_timing(),
+                DOT_DURATION,
+            )
             .and_then(|_| {
                 println!();
                 future::ok(())
-            })
-            .and_then(|_| {
-                transmit_with_dur(
-                    k2,
-                    Code::from_str("Morse code.").unwrap().into_timing(),
-                    Duration::from_millis(50),
-                )
-            })
-            .and_then(|_| {
-                println!();
-                future::ok(())
-            }),
-    );
+            }) // Convert error type to what FramedRead.for_each expects.
+            .map_err(|_| Error::new(ErrorKind::Other, ""))
+        })
+        .map_err(|e| panic!("{:?}", e));
+
+    tokio::run(task);
 }

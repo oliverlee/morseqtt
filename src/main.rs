@@ -1,6 +1,6 @@
 use morseqtt::code::Code;
 use morseqtt::key::*;
-use rumqtt::{MqttClient, MqttOptions, QoS};
+use rumqtt::{MqttClient, MqttOptions};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -56,7 +56,7 @@ fn program_opts() -> getopts::Options {
     opts
 }
 
-fn print_usage(program: &str, opts: getopts::Options) {
+fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!(
         concat!(
             "Usage: {} [options] <topic> <on_payload> <off_payload>\n\n",
@@ -71,68 +71,52 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let program = args[0].clone();
 
-    let mut opts = program_opts();
+    let opts = program_opts();
     let mut matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
             println!("{}", f.to_string());
             println!();
-            print_usage(&program, opts);
+            print_usage(&program, &opts);
             return;
         }
     };
     if matches.opt_present("help") {
-        print_usage(&program, opts);
+        print_usage(&program, &opts);
         return;
     }
     if matches.free.len() != 3 {
-        print_usage(&program, opts);
+        print_usage(&program, &opts);
         return;
     }
 
     let host = matches
         .opt_str("host")
-        .unwrap_or(default_host!().to_string());
+        .unwrap_or_else(|| default_host!().to_string());
     let port = matches
         .opt_str("port")
-        .map(|s| s.parse::<u16>().unwrap())
-        .unwrap_or(default_port!());
+        .map_or_else(|| default_port!(), |s| s.parse::<u16>().unwrap());
     let duration = Duration::from_millis(
         matches
             .opt_str("duration")
             .map(|s| s.parse::<u64>().unwrap())
             .unwrap_or(default_duration_ms!()),
     );
-    let off_payload = matches.free[0].as_str();
-    let on_payload = matches.free[1].as_str();
-    let topic = matches.free[2].as_str();
-    println!("topic: {}", topic);
-    println!("on payload: {}", on_payload);
-    println!("off payload: {}", off_payload);
-    println!("duration: {:?}", duration);
-    println!("host: {}", host);
-    println!("port: {}", port);
+    let off_payload = matches.free.pop().unwrap();
+    let on_payload = matches.free.pop().unwrap();
+    let topic = matches.free.pop().unwrap();
 
     let mqtt_options = MqttOptions::new(CLIENT_NAME, &host, port);
-    let (mut client1, _) = MqttClient::start(mqtt_options).unwrap();
-    let mut client2 = client1.clone();
+    let (client, _) = MqttClient::start(mqtt_options).unwrap();
     println!("Connected to {}:{} as {}", host, port, CLIENT_NAME);
 
     // Create a Key for transmission.
-    let k = Arc::new(Mutex::new(Key {
-        on: move || {
-            let payload = "ON";
-            client1
-                .publish("hello/world", QoS::AtLeastOnce, false, payload)
-                .unwrap();
-        },
-        off: move || {
-            let payload = "OFF";
-            client2
-                .publish("hello/world", QoS::AtLeastOnce, false, payload)
-                .unwrap();
-        },
-    }));
+    let k = Arc::new(Mutex::new(MqttKey::new(
+        client,
+        topic,
+        on_payload,
+        off_payload,
+    )));
 
     // Convert stdin into a nonblocking file;
     let file = tokio_file_unix::raw_stdin().unwrap();

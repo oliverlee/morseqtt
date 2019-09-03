@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle};
 use morseqtt::code::Code;
 use morseqtt::key::*;
 use rumqtt::{MqttClient, MqttOptions};
@@ -6,6 +7,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::prelude::*;
+
+use std::convert::TryInto;
 
 const CLIENT_NAME: &str = "morseqtt";
 
@@ -143,6 +146,22 @@ fn stdin_stream() -> tokio::codec::FramedRead<
     tokio::codec::FramedRead::new(file, line_codec)
 }
 
+fn progress_bar(message: &str, length: usize) -> ProgressBar {
+    // Assume that length is correct for message as we aren't going to convert to a timing phrase again.
+    let pb = ProgressBar::new(length.try_into().unwrap());
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{prefix} {wide_bar:.cyan/blue}")
+            .progress_chars("##-"),
+    );
+    pb.set_prefix(&format!("Transmitting: {}", message));
+
+    // We can simply change the style when the transmission is complete.
+    pb.set_message(&format!("Transmitted: {}", message));
+
+    pb
+}
+
 fn main() {
     let mut args = if let Some(args) = parse_args() {
         args
@@ -200,16 +219,15 @@ fn main() {
             let f = if code.is_empty() {
                 future::Either::A(future::ok(()))
             } else {
-                println!("Transmitting: {}", s);
+                // Morse code is only uppercase.
+                let pb = progress_bar(&s.to_uppercase(), code.timing().count());
 
-                future::Either::B(
-                    transmit_with_dur(Arc::clone(&k), code.into_timing(), args.duration).and_then(
-                        |_| {
-                            println!("Transmission complete.");
-                            future::ok(())
-                        },
-                    ),
-                )
+                future::Either::B(transmit_with_dur(
+                    Arc::clone(&k),
+                    code.into_timing(),
+                    args.duration,
+                    Some(pb),
+                ))
             };
 
             // Convert error type to what FramedRead.for_each expects.

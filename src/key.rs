@@ -58,10 +58,15 @@ pub fn progress_bar(message: &str, length: usize) -> ProgressBar {
     let pb = ProgressBar::new(length.try_into().unwrap());
     pb.set_style(
         ProgressStyle::default_bar()
-            .template("{prefix} {wide_bar:.cyan/blue}")
+            .template(&format!(
+                "📨 Transmitting: {} [ {{prefix:.cyan.bold}} ] {{wide_bar:.cyan/blue}}",
+                message
+            ))
             .progress_chars("##-"),
     );
-    pb.set_prefix(&format!("📨 Transmitting: {}", message));
+
+    // Prefix is used to display dot/dash.
+    pb.set_prefix(" ");
 
     // We can simply change the style when the transmission is complete.
     pb.set_message(&format!("📬 Transmitted: {}", message));
@@ -102,18 +107,30 @@ pub fn transmit_with_dur(
                         let mut guard = k.lock().unwrap();
                         let key = guard.deref_mut();
 
-                        if signal == Signal::On {
+                        let mark = if signal == Signal::On {
                             key.send_on();
+
+                            // This is kind of hacky and depends on the fact that a dot is set to length 1.
+                            if count == 1 {
+                                "."
+                            } else {
+                                "-"
+                            }
                         } else {
                             key.send_off();
+
+                            " "
+                        };
+
+                        if let Some(pb) = key.progress.as_ref() {
+                            pb.set_prefix(mark);
                         }
                     }
 
                     Delay::new(Instant::now() + count * dur).and_then(move |_| {
                         let mut guard = k.lock().unwrap();
 
-                        let progress = guard.deref_mut().progress.as_ref();
-                        if let Some(pb) = progress {
+                        if let Some(pb) = guard.deref_mut().progress.as_ref() {
                             pb.inc(count.into());
                         }
 

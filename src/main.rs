@@ -144,20 +144,38 @@ fn main() {
 
     let task = framed_read
         .for_each(move |line| {
-            let s = std::str::from_utf8(&line).unwrap().trim();
-            println!("Transmitting: {}", s);
+            let s = std::str::from_utf8(&line)
+                .unwrap_or_else(|e| {
+                    println!("Unable to parse: {}", e);
+                    ""
+                })
+                .trim();
+
+            let code = if let Ok(c) = Code::from_str(&s) {
+                c
+            } else {
+                println!("Input contained invalid characters");
+                Code::from_str("").unwrap()
+            };
 
             // Don't spawn this task as we want don't want multiple, simultaneous transmissions.
-            transmit_with_dur(
-                Arc::clone(&k),
-                Code::from_str(s).unwrap().into_timing(),
-                duration,
-            )
-            .and_then(|_| {
-                println!("Transmission complete.");
-                future::ok(())
-            }) // Convert error type to what FramedRead.for_each expects.
-            .map_err(|_| Error::new(ErrorKind::Other, ""))
+            let f = if code.is_empty() {
+                future::Either::A(future::ok(()))
+            } else {
+                println!("Transmitting: {}", s);
+
+                future::Either::B(
+                    transmit_with_dur(Arc::clone(&k), code.into_timing(), duration).and_then(
+                        |_| {
+                            println!("Transmission complete.");
+                            future::ok(())
+                        },
+                    ),
+                )
+            };
+
+            // Convert error type to what FramedRead.for_each expects.
+            f.map_err(|_| Error::new(ErrorKind::Other, ""))
         })
         .map_err(|e| panic!("{:?}", e));
 

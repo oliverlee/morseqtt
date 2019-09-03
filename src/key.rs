@@ -2,7 +2,7 @@ use crate::timing::Signal;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use rumqtt::{MqttClient, QoS};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -50,6 +50,23 @@ impl MqttKey {
             )
             .unwrap();
     }
+}
+
+#[allow(clippy::non_ascii_literal)]
+pub fn progress_bar(message: &str, length: usize) -> ProgressBar {
+    // Assume that length is correct for message as we aren't going to convert to a timing phrase again.
+    let pb = ProgressBar::new(length.try_into().unwrap());
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{prefix} {wide_bar:.cyan/blue}")
+            .progress_chars("##-"),
+    );
+    pb.set_prefix(&format!("📨 Transmitting: {}", message));
+
+    // We can simply change the style when the transmission is complete.
+    pb.set_message(&format!("📬 Transmitted: {}", message));
+
+    pb
 }
 
 pub fn transmit_with_dur(

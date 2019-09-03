@@ -1,14 +1,11 @@
-use indicatif::{ProgressBar, ProgressStyle};
 use morseqtt::code::Code;
-use morseqtt::key::*;
+use morseqtt::key;
 use rumqtt::{MqttClient, MqttOptions};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::prelude::*;
-
-use std::convert::TryInto;
 
 const CLIENT_NAME: &str = "morseqtt";
 
@@ -146,22 +143,6 @@ fn stdin_stream() -> tokio::codec::FramedRead<
     tokio::codec::FramedRead::new(file, line_codec)
 }
 
-fn progress_bar(message: &str, length: usize) -> ProgressBar {
-    // Assume that length is correct for message as we aren't going to convert to a timing phrase again.
-    let pb = ProgressBar::new(length.try_into().unwrap());
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{prefix} {wide_bar:.cyan/blue}")
-            .progress_chars("##-"),
-    );
-    pb.set_prefix(&format!("Transmitting: {}", message));
-
-    // We can simply change the style when the transmission is complete.
-    pb.set_message(&format!("Transmitted: {}", message));
-
-    pb
-}
-
 fn main() {
     let mut args = if let Some(args) = parse_args() {
         args
@@ -191,7 +172,7 @@ fn main() {
     std::mem::swap(&mut off_payload, &mut args.off_payload);
 
     // Create a Key for transmission.
-    let k = Arc::new(Mutex::new(MqttKey::new(
+    let k = Arc::new(Mutex::new(key::MqttKey::new(
         client,
         topic,
         on_payload,
@@ -220,9 +201,9 @@ fn main() {
                 future::Either::A(future::ok(()))
             } else {
                 // Morse code is only uppercase.
-                let pb = progress_bar(&s.to_uppercase(), code.timing().count());
+                let pb = key::progress_bar(&s.to_uppercase(), code.timing().count());
 
-                future::Either::B(transmit_with_dur(
+                future::Either::B(key::transmit_with_dur(
                     Arc::clone(&k),
                     code.into_timing(),
                     args.duration,

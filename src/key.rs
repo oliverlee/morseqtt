@@ -1,7 +1,8 @@
 use crate::timing::Signal;
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use rumqtt::{MqttClient, QoS};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -14,6 +15,7 @@ pub struct MqttKey {
     topic: String,
     on_payload: String,
     off_payload: String,
+    progress: Option<ProgressBar>,
 }
 
 impl MqttKey {
@@ -23,6 +25,7 @@ impl MqttKey {
             topic,
             on_payload,
             off_payload,
+            progress: None,
         }
     }
 
@@ -49,10 +52,33 @@ impl MqttKey {
     }
 }
 
+#[allow(clippy::non_ascii_literal)]
+pub fn progress_bar(message: &str, length: usize) -> ProgressBar {
+    // Assume that length is correct for message as we aren't going to convert to a timing phrase again.
+    let pb = ProgressBar::new(length.try_into().unwrap());
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template(&format!(
+                "📨 Transmitting: {} [ {{prefix:.cyan.bold}} ] {{wide_bar:.cyan/blue}}",
+                message
+            ))
+            .progress_chars("##-"),
+    );
+
+    // Prefix is used to display dot/dash.
+    pb.set_prefix(" ");
+
+    // We can simply change the style when the transmission is complete.
+    pb.set_message(&format!("📬 Transmitted: {}", message));
+
+    pb
+}
+
 pub fn transmit_with_dur(
     key: Arc<Mutex<MqttKey>>,
     timing: impl Iterator<Item = Signal>,
     dur: Duration,
+    progress_bar: Option<ProgressBar>,
 ) -> impl Future<Item = (), Error = ()> {
     // We need to force evaluation since group_by() is lazy
     let groups: Vec<_> = timing
@@ -70,19 +96,58 @@ pub fn transmit_with_dur(
     if groups.is_empty() {
         future::Either::A(future::ok(()))
     } else {
+        if let Some(pb) = progress_bar {
+            key.lock().unwrap().deref_mut().progress.replace(pb);
+        };
+
         future::Either::B(
             stream::iter_ok(groups.into_iter())
                 .for_each(move |(k, signal, count)| {
-                    if signal == Signal::On {
-                        k.lock().unwrap().deref_mut().send_on();
-                    } else {
-                        k.lock().unwrap().deref_mut().send_off();
+                    {
+                        let mut guard = k.lock().unwrap();
+                        let key = guard.deref_mut();
+
+                        let mark = if signal == Signal::On {
+                            key.send_on();
+
+                            // This is kind of hacky and depends on the fact that a dot is set to length 1.
+                            if count == 1 {
+                                "."
+                            } else {
+                                "-"
+                            }
+                        } else {
+                            key.send_off();
+
+                            " "
+                        };
+
+                        if let Some(pb) = key.progress.as_ref() {
+                            pb.set_prefix(mark);
+                        }
                     }
 
-                    Delay::new(Instant::now() + count * dur)
+                    Delay::new(Instant::now() + count * dur).and_then(move |_| {
+                        let mut guard = k.lock().unwrap();
+
+                        if let Some(pb) = guard.deref_mut().progress.as_ref() {
+                            pb.inc(count.into());
+                        }
+
+                        future::ok(())
+                    })
                 })
                 .and_then(move |_| {
-                    key.lock().unwrap().deref_mut().send_off();
+                    let mut guard = key.lock().unwrap();
+
+                    let key = guard.deref_mut();
+                    key.send_off();
+
+                    if let Some(pb) = key.progress.take() {
+                        pb.set_style(ProgressStyle::default_bar().template("{msg}"));
+                        pb.finish();
+                    }
+
                     future::ok(())
                 })
                 .map_err(|_| ()),

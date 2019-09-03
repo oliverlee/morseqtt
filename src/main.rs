@@ -1,5 +1,5 @@
 use morseqtt::code::Code;
-use morseqtt::key::*;
+use morseqtt::key;
 use rumqtt::{MqttClient, MqttOptions};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
@@ -60,14 +60,23 @@ fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!(
         concat!(
             "Usage: {} [options] <topic> <on_payload> <off_payload>\n\n",
-            "Translate input to morse code and send using MQTT."
+            "Encode input as Morse code and transmit with MQTT."
         ),
         program
     );
     print!("{}", opts.usage(&brief));
 }
 
-fn main() {
+struct ProgramOptions {
+    host: String,
+    port: u16,
+    duration: Duration,
+    topic: String,
+    on_payload: String,
+    off_payload: String,
+}
+
+fn parse_args() -> Option<ProgramOptions> {
     let args: Vec<String> = std::env::args().collect();
     let program = args[0].clone();
 
@@ -78,16 +87,12 @@ fn main() {
             println!("{}", f.to_string());
             println!();
             print_usage(&program, &opts);
-            return;
+            return None;
         }
     };
-    if matches.opt_present("help") {
+    if matches.opt_present("help") || matches.free.len() != 3 {
         print_usage(&program, &opts);
-        return;
-    }
-    if matches.free.len() != 3 {
-        print_usage(&program, &opts);
-        return;
+        return None;
     }
 
     let host = matches
@@ -100,7 +105,7 @@ fn main() {
         Ok(p) => p,
         Err(e) => {
             println!("Error parsing 'port': {}", e);
-            return;
+            return None;
         }
     };
     let duration = Duration::from_millis(
@@ -113,24 +118,20 @@ fn main() {
     let on_payload = matches.free.pop().unwrap();
     let topic = matches.free.pop().unwrap();
 
-    let mqtt_options = MqttOptions::new(CLIENT_NAME, &host, port);
-    let client = match MqttClient::start(mqtt_options) {
-        Ok((client, _)) => client,
-        Err(e) => {
-            println!("Error connecting to MQTT broker: {}", e);
-            return;
-        }
-    };
-    println!("Connected to {}:{} as {}", host, port, CLIENT_NAME);
-
-    // Create a Key for transmission.
-    let k = Arc::new(Mutex::new(MqttKey::new(
-        client,
+    Some(ProgramOptions {
+        host,
+        port,
+        duration,
         topic,
         on_payload,
         off_payload,
-    )));
+    })
+}
 
+fn stdin_stream() -> tokio::codec::FramedRead<
+    std::io::BufReader<tokio::reactor::PollEvented2<tokio_file_unix::File<std::fs::File>>>,
+    tokio_file_unix::DelimCodec<tokio_file_unix::Newline>,
+> {
     // Convert stdin into a nonblocking file;
     let file = tokio_file_unix::raw_stdin().unwrap();
     let file = tokio_file_unix::File::new_nb(file).unwrap();
@@ -138,11 +139,48 @@ fn main() {
         .into_reader(&tokio::reactor::Handle::default())
         .unwrap();
 
-    println!("Type something and hit enter to transmit!");
     let line_codec = tokio_file_unix::DelimCodec(tokio_file_unix::Newline);
-    let framed_read = tokio::codec::FramedRead::new(file, line_codec);
+    tokio::codec::FramedRead::new(file, line_codec)
+}
 
-    let task = framed_read
+fn main() {
+    let mut args = if let Some(args) = parse_args() {
+        args
+    } else {
+        return;
+    };
+
+    let mqtt_options = MqttOptions::new(CLIENT_NAME, &args.host, args.port);
+    let client = match MqttClient::start(mqtt_options) {
+        Ok((client, _)) => client,
+        Err(e) => {
+            println!("Error connecting to MQTT broker: {}", e);
+            return;
+        }
+    };
+    println!(
+        "Connected to {}:{} as {}",
+        args.host, args.port, CLIENT_NAME
+    );
+
+    // Take topic and payloads from `args`.
+    let mut topic: String = "".to_string();
+    let mut on_payload: String = "".to_string();
+    let mut off_payload: String = "".to_string();
+    std::mem::swap(&mut topic, &mut args.topic);
+    std::mem::swap(&mut on_payload, &mut args.on_payload);
+    std::mem::swap(&mut off_payload, &mut args.off_payload);
+
+    // Create a Key for transmission.
+    let k = Arc::new(Mutex::new(key::MqttKey::new(
+        client,
+        topic,
+        on_payload,
+        off_payload,
+    )));
+
+    println!("Type something and hit enter to transmit!");
+    let task = stdin_stream()
         .for_each(move |line| {
             let s = std::str::from_utf8(&line)
                 .unwrap_or_else(|e| {
@@ -162,16 +200,15 @@ fn main() {
             let f = if code.is_empty() {
                 future::Either::A(future::ok(()))
             } else {
-                println!("Transmitting: {}", s);
+                // Morse code is only uppercase.
+                let pb = key::progress_bar(&s.to_uppercase(), code.timing().count());
 
-                future::Either::B(
-                    transmit_with_dur(Arc::clone(&k), code.into_timing(), duration).and_then(
-                        |_| {
-                            println!("Transmission complete.");
-                            future::ok(())
-                        },
-                    ),
-                )
+                future::Either::B(key::transmit_with_dur(
+                    Arc::clone(&k),
+                    code.into_timing(),
+                    args.duration,
+                    Some(pb),
+                ))
             };
 
             // Convert error type to what FramedRead.for_each expects.
